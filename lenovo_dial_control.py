@@ -1,13 +1,15 @@
-from pynput import mouse, keyboard
+from pynput import mouse, keyboard  # Assuming you're using pynput for input
 from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 from ctypes import cast, POINTER
-from comtypes import CLSCTX_ALL
+from comtypes import CLSCTX_ALL  # Import CLSCTX_ALL
 import screen_brightness_control as sbc
 import time
 
+# ... (rest of your code)
+
 # Initialize volume control
 devices = AudioUtilities.GetSpeakers()
-interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)  # Use CLSCTX_ALL
 volume = cast(interface, POINTER(IAudioEndpointVolume))
 
 # Set initial mode
