@@ -6,6 +6,9 @@ import ctypes
 from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 from ctypes import cast, POINTER
 
+# Define CLSCTX_ALL since it might not be available directly from pycaw
+CLSCTX_ALL = 0x23  # This is the combined value for all contexts (CLSCTX_SERVER | CLSCTX_INPROC_HANDLER)
+
 # Setup for volume control
 devices = AudioUtilities.GetSpeakers()
 interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
