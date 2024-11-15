@@ -1,67 +1,56 @@
-import ctypes
 import time
-from ctypes.wintypes import BOOL, DWORD, HANDLE
+from pynput import mouse, keyboard
 
-# Constants
-ES_CONTINUOUS = 0x80000000
-ES_SYSTEM_REQUIRED = 0x00000001
-ES_DISPLAY_REQUIRED = 0x00000002
+def on_press(key):
+    try:
+        # If the key has a char attribute, it's an alphanumeric key
+        print(f"Alphanumeric key {key.char} pressed")
+    except AttributeError:
+        # If not, it's a special key (like F1, space, etc.)
+        print(f"Special key {key} pressed")
 
-# Import for volume control
-from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-from ctypes import cast, POINTER
+def on_release(key):
+    try:
+        # Handling key release
+        print(f"Alphanumeric key {key.char} released")
+    except AttributeError:
+        print(f"Special key {key} released")
 
-# Setup volume control
-devices = AudioUtilities.GetSpeakers()
-interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-volume = cast(interface, POINTER(IAudioEndpointVolume))
+    # Stop listener if 'esc' is pressed
+    if key == keyboard.Key.esc:
+        # Stop listener
+        return False
 
-VOLUME_STEP = 0.05  # 5% volume step
-
-# Brightness control using SetThreadExecutionState
-def set_brightness(state):
-    kernel32 = ctypes.windll.kernel32
-    kernel32.SetThreadExecutionState.argtypes =[DWORD]
-    kernel32.SetThreadExecutionState.restype = DWORD
-    return kernel32.SetThreadExecutionState(state)
-
-# Functions to adjust volume and brightness
-def increase_volume():
-    current_volume = volume.GetMasterVolumeLevelScalar()
-    volume.SetMasterVolumeLevelScalar(min(1.0, current_volume + VOLUME_STEP), None)
-    print("Volume increased")
-
-def decrease_volume():
-    current_volume = volume.GetMasterVolumeLevelScalar()
-    volume.SetMasterVolumeLevelScalar(max(0.0, current_volume - VOLUME_STEP), None)
-    print("Volume decreased")
-
-def increase_brightness():
-    current_state = set_brightness(ES_CONTINUOUS | ES_DISPLAY_REQUIRED)
-    if current_state == (ES_CONTINUOUS | ES_DISPLAY_REQUIRED):
-        print("Brightness increased")
+def on_click(x, y, button, pressed):
+    if pressed:
+        print(f"Mouse button '{button}' pressed at ({x}, {y})")
     else:
-        print("Failed to increase brightness")
+        print(f"Mouse button '{button}' released at ({x}, {y})")
 
-def decrease_brightness():
-    current_state = set_brightness(ES_CONTINUOUS)  # Turn off display required state
-    if current_state == ES_CONTINUOUS:
-        print("Brightness decreased")
-    else:
-        print("Failed to decrease brightness")
+def on_scroll(x, y, dx, dy):
+    print(f"Mouse scrolled at ({x}, {y}) - dx: {dx}, dy: {dy}")
 
-# Main loop for testing (replace with your HID event logic)
-while True:
-    command = input("Enter 'u' to increase, 'd' to decrease, 'b' for brightness, 'q' to quit: ")
-    if command == 'u':
-        increase_volume()
-    elif command == 'd':
-        decrease_volume()
-    elif command == 'b':
-        increase_brightness()
-    elif command == 'q':
-        print("Exiting...")
-        break
-    elif command == 'l':
-        decrease_brightness()
-    time.sleep(0.1)
+if __name__ == "__main__":
+    # Start the keyboard listener
+    keyboard_listener = keyboard.Listener(on_press=on_press, on_release=on_release)
+    keyboard_listener.start()
+
+    # Start the mouse listener
+    mouse_listener = mouse.Listener(on_click=on_click, on_scroll=on_scroll)
+    mouse_listener.start()
+
+    print("Listening for HID inputs. Press ESC to exit.")
+
+    try:
+        # Keep the script running to listen for events
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        # Handle the case where Ctrl+C is pressed
+        print("Script was interrupted by user.")
+
+    finally:
+        # Ensure listeners are stopped properly
+        keyboard_listener.stop()
+        mouse_listener.stop()
+        print("Listeners stopped")
