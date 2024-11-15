@@ -16,33 +16,44 @@ volume = cast(interface, POINTER(IAudioEndpointVolume))
 VOLUME_STEP = 0.05  # 5% volume step
 BRIGHTNESS_STEP = 10  # 10% brightness step
 
-# Global variable to track current control mode
+# Global variables
 current_mode = "volume"  # Start with volume control
+current_brightness = 50  # Track brightness level (0-100)
 
 def adjust_volume(change):
     """Adjusts the system volume by the specified change."""
     try:
         current_volume = volume.GetMasterVolumeLevelScalar()
-        volume.SetMasterVolumeLevelScalar(min(1.0, max(0.0, current_volume + change)), None)
-        print(f"Volume {'increased' if change > 0 else 'decreased'} to {int(current_volume * 100)}%")
+        new_volume = min(1.0, max(0.0, current_volume + change))
+        volume.SetMasterVolumeLevelScalar(new_volume, None)
+        print(f"Volume: {'▂' * int(new_volume * 20)} {int(new_volume * 100)}%")
     except Exception as e:
         print(f"Error adjusting volume: {e}")
 
 def set_brightness(value):
     """Sets the system brightness using Windows API."""
     try:
+        global current_brightness
         key = win32gui.RegOpenKeyEx(win32con.HKEY_CURRENT_USER, r"Control Panel\Desktop", 0, win32con.KEY_ALL_ACCESS)
         win32gui.RegSetValueEx(key, "PreferredUIPowerSetting", 0, win32con.REG_DWORD, value)
         win32gui.RegCloseKey(key)
         
-        # Notify the system of the change
+        # Update brightness tracking
+        if value == 0:  # Increase
+            current_brightness = min(100, current_brightness + BRIGHTNESS_STEP)
+        else:  # Decrease
+            current_brightness = max(0, current_brightness - BRIGHTNESS_STEP)
+            
+        # Visual feedback
+        print(f"Brightness: {'▂' * int(current_brightness/5)} {current_brightness}%")
+        
+        # Notify system of change
         ctypes.windll.user32.SendMessageW(
             win32con.HWND_BROADCAST, 
             win32con.WM_SETTINGCHANGE, 
             0, 
             ctypes.c_wchar_p("Environment")
         )
-        print(f"Brightness {'increased' if value == 0 else 'decreased'}")
     except Exception as e:
         print(f"Error adjusting brightness: {e}")
 
@@ -53,13 +64,13 @@ def on_press(key):
         # Toggle between volume and brightness control with Ctrl key
         if key == keyboard.Key.ctrl_l:
             current_mode = "brightness" if current_mode == "volume" else "volume"
-            print(f"Switched to {current_mode} control mode")
-        
-        # Print key info for debugging
-        if hasattr(key, 'char'):
-            print(f"Key pressed: {key.char}")
-        else:
-            print(f"Special key pressed: {key}")
+            print(f"\nSwitched to {current_mode.upper()} control mode")
+            # Show current level after mode switch
+            if current_mode == "volume":
+                current_volume = volume.GetMasterVolumeLevelScalar()
+                print(f"Volume: {'▂' * int(current_volume * 20)} {int(current_volume * 100)}%")
+            else:
+                print(f"Brightness: {'▂' * int(current_brightness/5)} {current_brightness}%")
     except Exception as e:
         print(f"Error handling key press: {e}")
 
@@ -81,21 +92,25 @@ def on_scroll(x, y, dx, dy):
 
 if __name__ == "__main__":
     try:
-        # Start keyboard listener
+        # Clear console and show welcome message
+        print("\033[H\033[J")  # Clear screen
+        print("=== Lenovo Dial Control ===")
+        print("Use the dial to adjust volume/brightness")
+        print("Press left Ctrl to switch between modes")
+        print("Press Ctrl+C to exit")
+        print(f"Current mode: {current_mode.upper()}")
+        
+        # Show initial volume level
+        current_vol = volume.GetMasterVolumeLevelScalar()
+        print(f"Volume: {'▂' * int(current_vol * 20)} {int(current_vol * 100)}%")
+        
+        # Start listeners
         keyboard_listener = keyboard.Listener(on_press=on_press)
         keyboard_listener.start()
-
-        # Start mouse listener for scroll events
+        
         mouse_listener = mouse.Listener(on_scroll=on_scroll)
         mouse_listener.start()
 
-        print("Lenovo Dial Control Running...")
-        print("Use the dial to adjust volume/brightness")
-        print("Press left Ctrl to switch between volume and brightness control")
-        print("Press Ctrl+C to exit")
-        print(f"Current mode: {current_mode}")
-
-        # Keep the script running
         while True:
             time.sleep(0.1)
 
